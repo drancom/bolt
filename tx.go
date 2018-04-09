@@ -497,7 +497,7 @@ func (tx *Tx) write() error {
 
 			// Write chunk to disk.
 			buf := ptr[:sz]
-			if _, err := tx.db.ops.writeAt(buf, offset); err != nil {
+			if _, err := tx.db.ops.writeAt(buf, offset); err != nil { // Main Write
 				return err
 			}
 

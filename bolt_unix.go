@@ -44,10 +44,20 @@ func funlock(db *DB) error {
 	return syscall.Flock(int(db.file.Fd()), syscall.LOCK_UN)
 }
 
-// mmap memory maps a DB's data file.
+func mmapRW(db *DB, sz int) error {
+	err := mmapOpen(db, sz, syscall.PROT_READ | syscall.PROT_WRITE, syscall.MAP_SHARED| syscall.MAP_HASSEMAPHORE |db.MmapFlags)
+	return err
+}
+
 func mmap(db *DB, sz int) error {
+	err := mmapOpen(db, sz, syscall.PROT_READ,                      syscall.MAP_SHARED|db.MmapFlags)
+	return err
+}
+
+// mmap memory maps a DB's data file.
+func mmapOpen(db *DB, sz int, prot int, flag int) error {
 	// Map the data file to memory.
-	b, err := syscall.Mmap(int(db.file.Fd()), 0, sz, syscall.PROT_READ, syscall.MAP_SHARED|db.MmapFlags)
+	b, err := syscall.Mmap(int(db.file.Fd()), 0, sz, prot, flag)
 	if err != nil {
 		return err
 	}
@@ -63,6 +73,34 @@ func mmap(db *DB, sz int) error {
 	db.datasz = sz
 	return nil
 }
+
+func writeMmap(db *DB, src []byte, off int64) (n int, err error) {
+	sz := len(src)
+	dest := db.data
+
+	if sz > db.datasz {
+		sz = db.datasz
+		n = 0
+		return n, fmt.Errorf("sz is bigger than datasz")
+	}
+
+	copy(dest[off:off+int64(sz)], src)
+
+	if err != nil {
+		return 0, err
+	}
+	n = sz
+
+	return n,nil
+}
+
+// func msync (b []byte, len uintptr) error {
+//	_, _, errno := syscall.Syscall(syscall.SYS_MSYNC, b, len, syscall.MS_SYNC)
+//	if errno != 0 {
+	//	return syscall.Errno(errno)
+//	}
+//	return nil
+//}
 
 // munmap unmaps a DB's data file from memory.
 func munmap(db *DB) error {
