@@ -959,6 +959,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
 	fs.BoolVar(&options.NoMmapWrite, "no-write-mmap", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
+	fs.BoolVar(&options.NoMmapWrite, "mmap-write", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
 	fs.SetOutput(cmd.Stderr)
 	if err := fs.Parse(args); err != nil {
@@ -1290,6 +1291,7 @@ type BenchOptions struct {
 	NoSync        bool
 	NoMmapWrite   bool
 	Work          bool
+	NoMmapWrite   bool
 	Path          string
 }
 

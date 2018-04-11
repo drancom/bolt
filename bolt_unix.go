@@ -45,7 +45,7 @@ func funlock(db *DB) error {
 }
 
 func mmapRW(db *DB, sz int) error {
-	err := mmapOpen(db, sz, syscall.PROT_READ | syscall.PROT_WRITE, syscall.MAP_SHARED| syscall.MAP_HASSEMAPHORE |db.MmapFlags)
+	err := mmapOpen(db, sz, syscall.PROT_READ | syscall.PROT_WRITE, syscall.MAP_SHARED/*| syscall.MAP_HASSEMAPHORE*/ |db.MmapFlags)
 	return err
 }
 
@@ -79,17 +79,15 @@ func writeMmap(db *DB, src []byte, off int64) (n int, err error) {
 	dest := db.data
 
 	if sz > db.datasz {
-		sz = db.datasz
 		n = 0
-		return n, fmt.Errorf("sz is bigger than datasz")
+		return n, fmt.Errorf("sz: %v is bigger than datasz: %v", sz, db.datasz)
 	}
 
-	copy(dest[off:off+int64(sz)], src)
+	n = copy(dest[off:off+int64(sz)], src)
 
-	if err != nil {
-		return 0, err
+	if n == 0 {
+		return 0, fmt.Errorf("not copied")
 	}
-	n = sz
 
 	return n,nil
 }
