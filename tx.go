@@ -497,9 +497,13 @@ func (tx *Tx) write() error {
 
 			// Write chunk to disk.
 			buf := ptr[:sz]
+
+			//t := time.Now()
 			if _, err := tx.db.ops.writeAt(buf, offset); err != nil { // Main Write
 				return err
 			}
+			//t1 := time.Since(t)
+			//fmt.Fprintf(os.Stderr, "Tx Time: %v\n", t1)
 
 			// Update statistics.
 			tx.stats.Write++
