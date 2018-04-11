@@ -918,6 +918,7 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		return err
 	}
 	db.NoSync = options.NoSync
+	db.NoMmapWrite = options.NoMmapWrite
 	defer db.Close()
 
 	// Write to the database.
@@ -956,6 +957,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.StringVar(&options.BlockProfile, "blockprofile", "", "")
 	fs.Float64Var(&options.FillPercent, "fill-percent", bolt.DefaultFillPercent, "")
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
+	fs.BoolVar(&options.NoMmapWrite, "no-write-mmap", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
 	fs.SetOutput(cmd.Stderr)
@@ -1286,6 +1288,7 @@ type BenchOptions struct {
 	StatsInterval time.Duration
 	FillPercent   float64
 	NoSync        bool
+	NoMmapWrite   bool
 	Work          bool
 	Path          string
 }
