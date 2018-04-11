@@ -238,15 +238,17 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		},
 	}
 
-	if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, 1 << 31); err != nil {
-		_ = db.close()
-		return nil, err
-	}
-	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
+
+	if !db.NoMmapWrite && !IgnoreMmapWrite {
 
 		// WriteAt writes len(b) bytes to the File starting at byte offset off.
 		// It returns the number of bytes written and an error, if any.
 		// WriteAt returns a non-nil error when n != len(b).
+		if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, 1 << 31); err != nil {
+			_ = db.close()
+			return nil, err
+		}
+
 		db.ops.writeAt = db.WriteMmap
 	} else {
 		db.ops.writeAt = db.file.WriteAt
