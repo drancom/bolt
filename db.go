@@ -199,15 +199,8 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 	}
 
 	// Default values for test hooks
-	if !db.NoMmapWrite && !IgnoreMmapWrite {
 
-		// WriteAt writes len(b) bytes to the File starting at byte offset off.
-		// It returns the number of bytes written and an error, if any.
-		// WriteAt returns a non-nil error when n != len(b).
-		db.ops.writeAt = db.WriteMmap
-	} else {
-		//db.ops.writeAt = db.file.WriteAt
-	}
+	db.ops.writeAt = db.file.WriteAt
 	// Initialize the database if it doesn't exist.
 	if info, err := db.file.Stat(); err != nil {
 		return nil, err
@@ -241,6 +234,15 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		New: func() interface{} {
 			return make([]byte, db.pageSize)
 		},
+	}
+	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
+
+		// WriteAt writes len(b) bytes to the File starting at byte offset off.
+		// It returns the number of bytes written and an error, if any.
+		// WriteAt returns a non-nil error when n != len(b).
+		db.ops.writeAt = db.WriteMmap
+	} else {
+		db.ops.writeAt = db.file.WriteAt
 	}
 
 	// Memory map the data file.
@@ -279,7 +281,6 @@ func (db *DB) mmap(minsz int) error {
 	if err != nil {
 		return err
 	}
-
 	// Dereference all mmap references before unmapping.
 	if db.rwtx != nil {
 		db.rwtx.root.dereference()
@@ -291,7 +292,7 @@ func (db *DB) mmap(minsz int) error {
 	}
 
 	// Memory-map the data file as a byte slice.
-	if !db.NoMmapWrite && !IgnoreMmapWrite {
+	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
 		if err := mmapRW(db, size); err != nil {
 			return err
 		}
@@ -323,7 +324,7 @@ func (db *DB) WriteMmap(b []byte, off int64) (n int, err error) {
 		m, e := writeMmap(db, b, off)
 
 		if e != nil || m != len(b) {
-			err = fmt.Errorf("error writeMmap")
+			err = e//fmt.Errorf("error writeMmap")
 		}
 
 	return
@@ -962,6 +963,7 @@ var DefaultOptions = &Options{
 	Timeout:    0,
 	NoGrowSync: false,
 	NoMmapWrite: false,
+	InitialMmapSize: 1 << 18,
 }
 
 // Stats represents statistics about the database.

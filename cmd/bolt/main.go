@@ -957,6 +957,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.Float64Var(&options.FillPercent, "fill-percent", bolt.DefaultFillPercent, "")
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
+	fs.BoolVar(&options.NoMmapWrite, "mmap-write", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
 	fs.SetOutput(cmd.Stderr)
 	if err := fs.Parse(args); err != nil {
@@ -1287,6 +1288,7 @@ type BenchOptions struct {
 	FillPercent   float64
 	NoSync        bool
 	Work          bool
+	NoMmapWrite   bool
 	Path          string
 }
 
