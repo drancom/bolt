@@ -932,8 +932,9 @@ func (cmd *BenchCommand) Run(args ...string) error {
 	}
 
 	// Print results.
-	fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-	fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+	//fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+	//fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+	fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), results.ReadOpsPerSecond())
 	fmt.Fprintln(os.Stderr, "")
 	return nil
 }

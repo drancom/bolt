@@ -186,7 +186,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		_ = db.close()
 		return nil, err
 	}
-	fmt.Fprintf(os.Stderr, "path: %v\n", db.path)
+	//fmt.Fprintf(os.Stderr, "path: %v\n", db.path)
 
 	// Lock file so that other processes using Bolt in read-write mode cannot
 	// use the database  at the same time. This would cause corruption since
@@ -238,7 +238,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		},
 	}
 
-	if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, 1 << 31); err != nil {
+	if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, int64(options.InitialMmapSize)); err != nil {
 		_ = db.close()
 		return nil, err
 	}
@@ -970,7 +970,7 @@ var DefaultOptions = &Options{
 	Timeout:    0,
 	NoGrowSync: false,
 	NoMmapWrite: false,
-	InitialMmapSize: 1 << 18,
+	InitialMmapSize: 1024 * 1024 * 1024,
 }
 
 // Stats represents statistics about the database.
