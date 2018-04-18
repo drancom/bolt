@@ -3,3 +3,6 @@
 *.swp
 /bin/
 .idea
+main
+cmd/bolt/bolt
+
