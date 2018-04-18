@@ -555,9 +555,12 @@ func (tx *Tx) writeMeta() error {
 	tx.meta.write(p)
 
 	// Write the meta page to file.
+	//t := time.Now()
 	if _, err := tx.db.ops.writeAt(buf, int64(p.id)*int64(tx.db.pageSize)); err != nil {
 		return err
 	}
+	//t1 := time.Since(t)
+	//fmt.Fprintf(os.Stderr, "Tx Time: %v\n", t1)
 	if !tx.db.NoSync || IgnoreNoSync {
 		if err := fdatasync(tx.db); err != nil {
 			return err

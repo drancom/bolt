@@ -2,6 +2,10 @@
 
 package bolt
 
+//#include <stdio.h>
+//#include<string.h>
+import "C"
+
 import (
 	"fmt"
 	"os"
@@ -75,19 +79,42 @@ func mmapOpen(db *DB, sz int, prot int, flag int) error {
 }
 
 func writeMmap(db *DB, src []byte, off int64) (n int, err error) {
-	sz := len(src)
-	dest := db.data
+	n = len(src)
+	//dest := db.data
 
-	if sz > db.datasz {
-		n = 0
-		return n, fmt.Errorf("sz: %v is bigger than datasz: %v", sz, db.datasz)
+	//if sz > db.datasz {
+	//	n = 0
+	//	return n, fmt.Errorf("sz: %v is bigger than datasz: %v", sz, db.datasz)
+	//}
+
+	//t := time.Now()
+
+	/** /
+	n = copy(db.data[off:off+int64(len(src))], src)
+	/** /
+	dest_pointer := unsafe.Pointer(&db.data[off])
+	src_pointer := unsafe.Pointer(&src[0])
+	size_t_n := C.size_t(n)
+	C.memcpy(dest_pointer, src_pointer, size_t_n)
+
+
+	/**/
+	size_t_n := C.size_t(n)
+	i:=0
+	o:=int(off)
+	for size_t_n > 0 {
+		size_t_n--
+		db.data[o+i] = src[i]
+		i++
 	}
+	/**/
 
-	n = copy(dest[off:off+int64(sz)], src)
+	//t1 := time.Since(t)
+	//fmt.Fprintf(os.Stderr, "Tx Time: %v\n", t1)
 
-	if n == 0 {
-		return 0, fmt.Errorf("not copied")
-	}
+	//if n == 0 {
+	//	return 0, fmt.Errorf("not copied")
+	//}
 
 	return n,nil
 }

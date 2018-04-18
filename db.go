@@ -98,6 +98,7 @@ type DB struct {
 	// Do not change concurrently with calls to Batch.
 	MaxBatchDelay time.Duration
 
+	Verbose bool
 	// AllocSize is the amount of space allocated when the database
 	// needs to create new pages. This is done to amortize the cost
 	// of truncate() and fsync() when growing the data file.
@@ -171,6 +172,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 	db.NoGrowSync = options.NoGrowSync
 	db.MmapFlags = options.MmapFlags
 	db.NoMmapWrite = options.NoMmapWrite
+	db.Verbose = options.Verbose
 
 	// Set default values for later DB operations.
 	db.MaxBatchSize = DefaultMaxBatchSize
@@ -190,7 +192,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		_ = db.close()
 		return nil, err
 	}
-	fmt.Fprintf(os.Stderr, "path: %v\n", db.path)
+	//fmt.Fprintf(os.Stderr, "path: %v\n", db.path)
 
 	// Lock file so that other processes using Bolt in read-write mode cannot
 	// use the database  at the same time. This would cause corruption since
@@ -242,8 +244,11 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		},
 	}
 
-
-	if !db.NoMmapWrite && !IgnoreMmapWrite {
+	if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, int64(options.InitialMmapSize)); err != nil {
+		_ = db.close()
+		return nil, err
+	}
+	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
 
 		// WriteAt writes len(b) bytes to the File starting at byte offset off.
 		// It returns the number of bytes written and an error, if any.
@@ -254,13 +259,17 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		}
 
 		db.ops.writeAt = db.WriteMmap
-		fmt.Print("db.ops.writeAt == db.WriteMmap")
-		fmt.Print("\n")
+		if db.Verbose == true {
+			fmt.Print("db.ops.writeAt == db.WriteMmap")
+			fmt.Print("\n")
+		}
 
 	} else {
 		db.ops.writeAt = db.file.WriteAt
-		fmt.Print("db.ops.writeAt == db.file.WriteAt")
-		fmt.Print("\n")
+		if db.Verbose == true {
+			fmt.Print("db.ops.writeAt == db.file.WriteAt")
+			fmt.Print("\n")
+		}
 
 	}
 
@@ -974,6 +983,7 @@ type Options struct {
 
 	// Mmap with write option
 	NoMmapWrite bool
+	Verbose   bool
 }
 
 // DefaultOptions represent the options used if nil options are passed into Open().
@@ -982,7 +992,8 @@ var DefaultOptions = &Options{
 	Timeout:    0,
 	NoGrowSync: false,
 	NoMmapWrite: false,
-	InitialMmapSize: 1 << 18,
+	Verbose:     false,
+	InitialMmapSize: 1024 * 1024 * 1024,
 }
 
 // Stats represents statistics about the database.

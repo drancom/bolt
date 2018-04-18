@@ -932,7 +932,8 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		if err := cmd.runGoFileWrites(db, options, &results); err != nil {
 			return fmt.Errorf("goFileWrites", err)
 		}
-		fmt.Fprintf(os.Stderr, "# GoFileWrites\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+		//fmt.Fprintf(os.Stderr, "# GoFileWrites\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+		fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), 0)
 
 	} else {
 		if err := cmd.runWrites(db, options, &results); err != nil {
@@ -945,11 +946,13 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		}
 
 		// Print results.
-		fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-		fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+		//fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+		//fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+		fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), results.ReadOpsPerSecond())
+		fmt.Fprintln(os.Stderr, "")
 	}
 
-	fmt.Fprintln(os.Stderr, "")
+	// Print results.
 
 	return nil
 }
