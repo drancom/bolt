@@ -914,6 +914,7 @@ func (cmd *BenchCommand) Run(args ...string) error {
 
 	opt := bolt.DefaultOptions
 	opt.NoMmapWrite = options.NoMmapWrite
+	opt.Verbose = options.Verbose
 
 	// Create database.
 	db, err := bolt.Open(options.Path, 0666, opt)
@@ -932,8 +933,12 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		if err := cmd.runGoFileWrites(db, options, &results); err != nil {
 			return fmt.Errorf("goFileWrites", err)
 		}
-		//fmt.Fprintf(os.Stderr, "# GoFileWrites\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-		fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), 0)
+		if options.Verbose == true {
+			fmt.Fprintf(os.Stderr, "# GoFileWrites\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+		} else {
+			fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), 0)
+			fmt.Fprintln(os.Stderr, "")
+		}
 
 	} else {
 		if err := cmd.runWrites(db, options, &results); err != nil {
@@ -946,10 +951,13 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		}
 
 		// Print results.
-		//fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-		//fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
-		fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), results.ReadOpsPerSecond())
-		fmt.Fprintln(os.Stderr, "")
+		if options.Verbose == true {
+			fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+			fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+		} else {
+			fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), results.ReadOpsPerSecond())
+			fmt.Fprintln(os.Stderr, "")
+		}
 	}
 
 	// Print results.
@@ -977,8 +985,8 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.Float64Var(&options.FillPercent, "fill-percent", bolt.DefaultFillPercent, "")
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
 	fs.BoolVar(&options.NoMmapWrite, "no-mmap-write", false, "")
+	fs.BoolVar(&options.Verbose, "v", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
-	fs.BoolVar(&options.NoMmapWrite, "mmap-write", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
 	fs.SetOutput(cmd.Stderr)
 	if err := fs.Parse(args); err != nil {
@@ -1379,6 +1387,7 @@ type BenchOptions struct {
 	NoMmapWrite   bool
 	Work          bool
 	Path          string
+	Verbose       bool
 }
 
 // BenchResults represents the performance results of the benchmark.
