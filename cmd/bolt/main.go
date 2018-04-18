@@ -19,7 +19,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/boltdb/bolt"
+	"github.com/drancom/bolt"
 )
 
 var (
@@ -932,8 +932,9 @@ func (cmd *BenchCommand) Run(args ...string) error {
 	}
 
 	// Print results.
-	fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-	fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+	//fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+	//fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
+	fmt.Fprintf(os.Stderr, "%v %v", results.WriteOpsPerSecond(), results.ReadOpsPerSecond())
 	fmt.Fprintln(os.Stderr, "")
 	return nil
 }
@@ -957,6 +958,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.Float64Var(&options.FillPercent, "fill-percent", bolt.DefaultFillPercent, "")
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
+	fs.BoolVar(&options.NoMmapWrite, "mmap-write", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
 	fs.SetOutput(cmd.Stderr)
 	if err := fs.Parse(args); err != nil {
@@ -1287,6 +1289,7 @@ type BenchOptions struct {
 	FillPercent   float64
 	NoSync        bool
 	Work          bool
+	NoMmapWrite   bool
 	Path          string
 }
 

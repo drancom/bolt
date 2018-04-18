@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+	"syscall"
 )
 
 // The largest step that can be taken when remapping the mmap.
@@ -28,6 +29,10 @@ const magic uint32 = 0xED0CDAED
 // such as OpenBSD, do not have a unified buffer cache (UBC) and writes
 // must be synchronized using the msync(2) syscall.
 const IgnoreNoSync = runtime.GOOS == "openbsd"
+
+// IgnoreMmapWrite specifies whether the MmapWrite field of a DB is ignored when
+// mmap is used for the write. Currently mmapWrite is only for the linux.
+const IgnoreMmapWrite = runtime.GOOS == "linux"
 
 // Default values if not set in a DB instance.
 const (
@@ -60,6 +65,10 @@ type DB struct {
 	//
 	// THIS IS UNSAFE. PLEASE USE WITH CAUTION.
 	NoSync bool
+
+	// Setting the MmapWrite flag will use mmap for write a file.
+	// Currently writeAt is used. Default value is false
+	NoMmapWrite bool
 
 	// When true, skips the truncate call when growing the database.
 	// Setting this to true is only safe on non-ext3/ext4 systems.
@@ -97,9 +106,10 @@ type DB struct {
 	path     string
 	file     *os.File
 	lockfile *os.File // windows only
-	dataref  []byte   // mmap'ed readonly, write throws SEGV
+	dataref  []byte   // mmap'ed readwrite with the flag MmapWrite true // mmap'ed readonly, write throws SEGV
 	data     *[maxMapSize]byte
 	datasz   int
+
 	filesz   int // current on disk file size
 	meta0    *meta
 	meta1    *meta
@@ -148,7 +158,7 @@ func (db *DB) String() string {
 // If the file does not exist then it will be created automatically.
 // Passing in nil options will cause Bolt to open the database with the default options.
 func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
-	var db = &DB{opened: true}
+	var db= &DB{opened: true}
 
 	// Set default options if no options are provided.
 	if options == nil {
@@ -156,6 +166,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 	}
 	db.NoGrowSync = options.NoGrowSync
 	db.MmapFlags = options.MmapFlags
+	db.NoMmapWrite = options.NoMmapWrite
 
 	// Set default values for later DB operations.
 	db.MaxBatchSize = DefaultMaxBatchSize
@@ -175,6 +186,7 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		_ = db.close()
 		return nil, err
 	}
+	//fmt.Fprintf(os.Stderr, "path: %v\n", db.path)
 
 	// Lock file so that other processes using Bolt in read-write mode cannot
 	// use the database  at the same time. This would cause corruption since
@@ -189,8 +201,8 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 	}
 
 	// Default values for test hooks
-	db.ops.writeAt = db.file.WriteAt
 
+	db.ops.writeAt = db.file.WriteAt
 	// Initialize the database if it doesn't exist.
 	if info, err := db.file.Stat(); err != nil {
 		return nil, err
@@ -224,6 +236,20 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		New: func() interface{} {
 			return make([]byte, db.pageSize)
 		},
+	}
+
+	if err = syscall.Fallocate(int(db.file.Fd()), 0, 0, int64(options.InitialMmapSize)); err != nil {
+		_ = db.close()
+		return nil, err
+	}
+	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
+
+		// WriteAt writes len(b) bytes to the File starting at byte offset off.
+		// It returns the number of bytes written and an error, if any.
+		// WriteAt returns a non-nil error when n != len(b).
+		db.ops.writeAt = db.WriteMmap
+	} else {
+		db.ops.writeAt = db.file.WriteAt
 	}
 
 	// Memory map the data file.
@@ -262,7 +288,6 @@ func (db *DB) mmap(minsz int) error {
 	if err != nil {
 		return err
 	}
-
 	// Dereference all mmap references before unmapping.
 	if db.rwtx != nil {
 		db.rwtx.root.dereference()
@@ -274,8 +299,15 @@ func (db *DB) mmap(minsz int) error {
 	}
 
 	// Memory-map the data file as a byte slice.
-	if err := mmap(db, size); err != nil {
-		return err
+	if !db.NoMmapWrite /*&& !IgnoreMmapWrite*/ {
+		if err := mmapRW(db, size); err != nil {
+			return err
+		}
+
+	} else {
+		if err := mmap(db, size); err != nil {
+			return err
+		}
 	}
 
 	// Save references to the meta pages.
@@ -293,7 +325,17 @@ func (db *DB) mmap(minsz int) error {
 
 	return nil
 }
+func (db *DB) WriteMmap(b []byte, off int64) (n int, err error) {
+		// m, e := f.pwrite(b, off)
+		// write using mmap
+		m, e := writeMmap(db, b, off)
 
+		if e != nil || m != len(b) {
+			err = e//fmt.Errorf("error writeMmap")
+		}
+
+	return
+}
 // munmap unmaps the data file from memory.
 func (db *DB) munmap() error {
 	if err := munmap(db); err != nil {
@@ -917,6 +959,9 @@ type Options struct {
 	// If initialMmapSize is smaller than the previous database size,
 	// it takes no effect.
 	InitialMmapSize int
+
+	// Mmap with write option
+	NoMmapWrite bool
 }
 
 // DefaultOptions represent the options used if nil options are passed into Open().
@@ -924,6 +969,8 @@ type Options struct {
 var DefaultOptions = &Options{
 	Timeout:    0,
 	NoGrowSync: false,
+	NoMmapWrite: false,
+	InitialMmapSize: 1024 * 1024 * 1024,
 }
 
 // Stats represents statistics about the database.
