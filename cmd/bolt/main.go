@@ -921,21 +921,33 @@ func (cmd *BenchCommand) Run(args ...string) error {
 	db.NoMmapWrite = options.NoMmapWrite
 	defer db.Close()
 
+
+
 	// Write to the database.
 	var results BenchResults
-	if err := cmd.runWrites(db, options, &results); err != nil {
-		return fmt.Errorf("write: %v", err)
+	if options.GoFileMode ==true {
+		if err := cmd.runGoFileWrites(db, options, &results); err != nil {
+			return fmt.Errorf("goFileWrites", err)
+		}
+		fmt.Fprintf(os.Stderr, "# GoFileWrites\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+
+	} else {
+		if err := cmd.runWrites(db, options, &results); err != nil {
+			return fmt.Errorf("write: %v", err)
+		}
+
+		// Read from the database.
+		if err := cmd.runReads(db, options, &results); err != nil {
+			return fmt.Errorf("bench: read: %s", err)
+		}
+
+		// Print results.
+		fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
+		fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
 	}
 
-	// Read from the database.
-	if err := cmd.runReads(db, options, &results); err != nil {
-		return fmt.Errorf("bench: read: %s", err)
-	}
-
-	// Print results.
-	fmt.Fprintf(os.Stderr, "# Write\t%v\t(%v/op)\t(%v op/sec)\n", results.WriteDuration, results.WriteOpDuration(), results.WriteOpsPerSecond())
-	fmt.Fprintf(os.Stderr, "# Read\t%v\t(%v/op)\t(%v op/sec)\n", results.ReadDuration, results.ReadOpDuration(), results.ReadOpsPerSecond())
 	fmt.Fprintln(os.Stderr, "")
+
 	return nil
 }
 
@@ -945,6 +957,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 
 	// Parse flagset.
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	fs.BoolVar(&options.GoFileMode, "go-file-mode", false, "") // mmap-write configuration naturally select write function.
 	fs.StringVar(&options.ProfileMode, "profile-mode", "rw", "")
 	fs.StringVar(&options.WriteMode, "write-mode", "seq", "")
 	fs.StringVar(&options.ReadMode, "read-mode", "seq", "")
@@ -988,6 +1001,28 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	return &options, nil
 }
 
+// Writes to the file.
+func (cmd *BenchCommand) runGoFileWrites(db *bolt.DB, options *BenchOptions, results *BenchResults) error {
+	// Start profiling for writes.
+	if options.ProfileMode == "rw" || options.ProfileMode == "w" {
+		cmd.startProfiling(options)
+	}
+
+	t := time.Now()
+
+	err = cmd.runGoFileWritesSequential(db, options, results)
+
+	// Save time to write.
+	results.WriteDuration = time.Since(t)
+
+	// Stop profiling for writes only.
+	if options.ProfileMode == "w" {
+		cmd.stopProfiling()
+	}
+
+	return err
+}
+
 // Writes to the database.
 func (cmd *BenchCommand) runWrites(db *bolt.DB, options *BenchOptions, results *BenchResults) error {
 	// Start profiling for writes.
@@ -1022,6 +1057,13 @@ func (cmd *BenchCommand) runWrites(db *bolt.DB, options *BenchOptions, results *
 	return err
 }
 
+func (cmd *BenchCommand) runGoFileWritesSequential(db *bolt.DB, options *BenchOptions, results *BenchResults) error {
+	var i = uint32(0)
+	return cmd.runGoFileWritesWithSource(db, options, results, func() uint32 { i++; return i })
+}
+
+
+
 func (cmd *BenchCommand) runWritesSequential(db *bolt.DB, options *BenchOptions, results *BenchResults) error {
 	var i = uint32(0)
 	return cmd.runWritesWithSource(db, options, results, func() uint32 { i++; return i })
@@ -1040,6 +1082,44 @@ func (cmd *BenchCommand) runWritesSequentialNested(db *bolt.DB, options *BenchOp
 func (cmd *BenchCommand) runWritesRandomNested(db *bolt.DB, options *BenchOptions, results *BenchResults) error {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return cmd.runWritesWithSource(db, options, results, func() uint32 { return r.Uint32() })
+}
+
+func (cmd *BenchCommand) runGoFileWritesWithSource(db *bolt.DB, options *BenchOptions, results *BenchResults, keySource func() uint32) error {
+	results.WriteOps = options.Iterations
+	m := make([]byte, (options.KeySize + options.ValueSize) * options.Iterations)
+	mOff := 0
+	dbOff := 0
+
+	for i := 0; i < options.Iterations; i += options.BatchSize {
+		//if err := db.Update(func(tx *bolt.Tx) error {
+		//	b, _ := tx.CreateBucketIfNotExists(benchBucketName)
+		//	b.FillPercent = options.FillPercent
+
+			for j := 0; j < options.BatchSize; j++ {
+				key := make([]byte, options.KeySize)
+				value := make([]byte, options.ValueSize)
+
+				// Write key as uint32.
+				binary.BigEndian.PutUint32(key, keySource())
+
+				// Colllect key/value.
+
+
+				copy(m[mOff:], key)
+				mOff += options.KeySize
+				copy(m[mOff:], value)
+				mOff += options.ValueSize
+
+			}
+
+			db.WriteAt(m[:mOff], int64(dbOff))
+			dbOff += mOff
+			mOff = 0
+
+			return nil
+
+	}
+	return nil
 }
 
 func (cmd *BenchCommand) runWritesWithSource(db *bolt.DB, options *BenchOptions, results *BenchResults, keySource func() uint32) error {
@@ -1276,6 +1356,7 @@ func (cmd *BenchCommand) stopProfiling() {
 
 // BenchOptions represents the set of options that can be passed to "bolt bench".
 type BenchOptions struct {
+	GoFileMode    bool
 	ProfileMode   string
 	WriteMode     string
 	ReadMode      string
@@ -1291,7 +1372,6 @@ type BenchOptions struct {
 	NoSync        bool
 	NoMmapWrite   bool
 	Work          bool
-	NoMmapWrite   bool
 	Path          string
 }
 

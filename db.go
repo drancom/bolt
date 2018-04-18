@@ -139,6 +139,10 @@ type DB struct {
 	readOnly bool
 }
 
+func (db *DB) WriteAt (b []byte, off int64) (n int, err error) {
+	return db.ops.writeAt(b, off)
+}
+
 // Path returns the path to currently open database file.
 func (db *DB) Path() string {
 	return db.path
