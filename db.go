@@ -32,7 +32,7 @@ const IgnoreNoSync = runtime.GOOS == "openbsd"
 
 // IgnoreMmapWrite specifies whether the MmapWrite field of a DB is ignored when
 // mmap is used for the write. Currently mmapWrite is only for the linux.
-const IgnoreMmapWrite = runtime.GOOS == "linux"
+const IgnoreMmapWrite = !(runtime.GOOS == "linux")
 
 // Default values if not set in a DB instance.
 const (
@@ -254,8 +254,14 @@ func Open(path string, mode os.FileMode, options *Options) (*DB, error) {
 		}
 
 		db.ops.writeAt = db.WriteMmap
+		fmt.Print("db.ops.writeAt == db.WriteMmap")
+		fmt.Print("\n")
+
 	} else {
 		db.ops.writeAt = db.file.WriteAt
+		fmt.Print("db.ops.writeAt == db.file.WriteAt")
+		fmt.Print("\n")
+
 	}
 
 	// Memory map the data file.

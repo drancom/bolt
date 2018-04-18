@@ -912,13 +912,16 @@ func (cmd *BenchCommand) Run(args ...string) error {
 		defer os.Remove(options.Path)
 	}
 
+	opt := bolt.DefaultOptions
+	opt.NoMmapWrite = options.NoMmapWrite
+
 	// Create database.
-	db, err := bolt.Open(options.Path, 0666, nil)
+	db, err := bolt.Open(options.Path, 0666, opt)
+
 	if err != nil {
 		return err
 	}
 	db.NoSync = options.NoSync
-	db.NoMmapWrite = options.NoMmapWrite
 	defer db.Close()
 
 
@@ -970,7 +973,7 @@ func (cmd *BenchCommand) ParseFlags(args []string) (*BenchOptions, error) {
 	fs.StringVar(&options.BlockProfile, "blockprofile", "", "")
 	fs.Float64Var(&options.FillPercent, "fill-percent", bolt.DefaultFillPercent, "")
 	fs.BoolVar(&options.NoSync, "no-sync", false, "")
-	fs.BoolVar(&options.NoMmapWrite, "no-write-mmap", false, "")
+	fs.BoolVar(&options.NoMmapWrite, "no-mmap-write", false, "")
 	fs.BoolVar(&options.Work, "work", false, "")
 	fs.BoolVar(&options.NoMmapWrite, "mmap-write", false, "")
 	fs.StringVar(&options.Path, "path", "", "")
@@ -1010,7 +1013,7 @@ func (cmd *BenchCommand) runGoFileWrites(db *bolt.DB, options *BenchOptions, res
 
 	t := time.Now()
 
-	err = cmd.runGoFileWritesSequential(db, options, results)
+	err := cmd.runGoFileWritesSequential(db, options, results)
 
 	// Save time to write.
 	results.WriteDuration = time.Since(t)
