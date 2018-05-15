@@ -1,6 +1,6 @@
 #! /bin/bash
 
-for implementation in -no-mmap-write copy
+for implementation in WRITEAS MMMAP
 do
 		for batch_size in "1" "10" "100"
 		do
