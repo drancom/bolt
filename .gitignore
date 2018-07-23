@@ -2,3 +2,5 @@
 *.test
 *.swp
 /bin/
+bolt.iml
+.idea
